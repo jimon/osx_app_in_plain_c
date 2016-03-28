@@ -7,6 +7,7 @@
 #include <objc/runtime.h>
 #include <objc/message.h>
 #include <objc/NSObjCRuntime.h>
+#include <OpenGL/gl.h>
 
 // maybe this is available somewhere in objc runtime?
 #if __LP64__ || (TARGET_OS_EMBEDDED && !TARGET_OS_IPHONE) || TARGET_OS_WIN32 || NS_BUILD_32_LIKE_64
@@ -48,7 +49,7 @@ NSUInteger applicationShouldTerminate(id self, SEL _sel, id sender)
 
 int main() {
 	//@autoreleasepool { // TODO ???
-
+	
 	//[NSApplication sharedApplication];
 	((id (*)(id, SEL))objc_msgSend)((id)objc_getClass("NSApplication"), sel_registerName("sharedApplication"));
 	
@@ -111,7 +112,7 @@ int main() {
 	((void (*)(id, SEL, id))objc_msgSend)(appMenuItem, sel_registerName("setSubmenu:"), appMenu);
 	
 	//id window = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 200, 200) styleMask:NSTitledWindowMask | NSClosableWindowMask | NSMiniaturizableWindowMask | NSResizableWindowMask backing:NSBackingStoreBuffered defer:NO];
-	NSRect rect = {{0, 0}, {200, 200}};
+	NSRect rect = {{0, 0}, {500, 500}};
 	id windowAlloc = ((id (*)(id, SEL))objc_msgSend)((id)objc_getClass("NSWindow"), sel_registerName("alloc"));
 	id window = ((id (*)(id, SEL, NSRect, NSUInteger, NSUInteger, BOOL))objc_msgSend)(windowAlloc, sel_registerName("initWithContentRect:styleMask:backing:defer:"), rect, 15, 2, NO);
 	
@@ -123,6 +124,35 @@ int main() {
 	id titleStringAlloc = ((id (*)(id, SEL))objc_msgSend)((id)objc_getClass("NSString"), sel_registerName("alloc"));
 	id titleString = ((id (*)(id, SEL, const char*))objc_msgSend)(titleStringAlloc, sel_registerName("initWithUTF8String:"), "sup from C");
 	((void (*)(id, SEL, id))objc_msgSend)(window, sel_registerName("setTitle:"), titleString);
+	
+//	NSOpenGLPixelFormatAttribute glAttributes[] =
+//	{
+//		NSOpenGLPFAColorSize, 24,
+//		NSOpenGLPFAAlphaSize, 8,
+//		NSOpenGLPFADoubleBuffer,
+//		NSOpenGLPFAAccelerated,
+//		0
+//	};
+	uint32_t glAttributes[] =
+	{
+		8, 24,
+		11, 8,
+		5,
+		73,
+		0
+	};
+	
+	//NSOpenGLPixelFormat * pixelFormat = [[NSOpenGLPixelFormat alloc] initWithAttributes:glAttributes];
+	id pixelFormatAlloc = ((id (*)(id, SEL))objc_msgSend)((id)objc_getClass("NSOpenGLPixelFormat"), sel_registerName("alloc"));
+	id pixelFormat = ((id (*)(id, SEL, const uint32_t*))objc_msgSend)(pixelFormatAlloc, sel_registerName("initWithAttributes:"), glAttributes);
+
+	//NSOpenGLContext * openGLContext = [[NSOpenGLContext alloc] initWithFormat:pixelFormat shareContext:nil];
+	id openGLContextAlloc = ((id (*)(id, SEL))objc_msgSend)((id)objc_getClass("NSOpenGLContext"), sel_registerName("alloc"));
+	id openGLContext = ((id (*)(id, SEL, id, id))objc_msgSend)(openGLContextAlloc, sel_registerName("initWithFormat:shareContext:"), pixelFormat, nil);
+	
+	//[openGLContext setView:[window contentView]];
+	id contentView = ((id (*)(id, SEL))objc_msgSend)(window, sel_registerName("contentView"));
+	((void (*)(id, SEL, id))objc_msgSend)(openGLContext, sel_registerName("setView:"), contentView);
 	
 	//[window makeKeyAndOrderFront:window];
 	((void (*)(id, SEL, id))objc_msgSend)(window, sel_registerName("makeKeyAndOrderFront:"), window);
@@ -145,9 +175,11 @@ int main() {
 		//NSEvent * event = [NSApp nextEventMatchingMask:NSAnyEventMask untilDate:[NSDate distantPast] inMode:NSDefaultRunLoopMode dequeue:YES];
 		id distantPast = ((id (*)(id, SEL))objc_msgSend)((id)objc_getClass("NSDate"), sel_registerName("distantPast"));
 		id event = ((id (*)(id, SEL, NSUInteger, id, id, BOOL))objc_msgSend)(NSApp, sel_registerName("nextEventMatchingMask:untilDate:inMode:dequeue:"), NSUIntegerMax, distantPast, NSDefaultRunLoopMode, YES);
+
 		if(event)
 		{
 			printf("event\n");
+			
 			//[NSApp sendEvent:event];
 			((void (*)(id, SEL, id))objc_msgSend)(NSApp, sel_registerName("sendEvent:"), event);
 			
@@ -156,15 +188,38 @@ int main() {
 		}
 		
 		// do runloop stuff
-	}
+		//[openGLContext update]; // probably we only need to do it when we resize the window
+		((void (*)(id, SEL))objc_msgSend)(openGLContext, sel_registerName("update"));
+		
+		//[openGLContext makeCurrentContext];
+		((void (*)(id, SEL))objc_msgSend)(openGLContext, sel_registerName("makeCurrentContext"));
+		
+		//NSRect rect = [((NSWindow*)window) frame];
+		NSRect rect = ((NSRect (*)(id, SEL))objc_msgSend_stret)(window, sel_registerName("frame"));
 
+		glViewport(0, 0, rect.size.width, rect.size.height);
+		
+		glClearColor(0.0f, 0.0f, 1.0f, 1.0f);
+		glClear(GL_COLOR_BUFFER_BIT);
+		glColor3f(1.0f, 0.85f, 0.35f);
+		glBegin(GL_TRIANGLES);
+		{
+			glVertex3f(  0.0,  0.6, 0.0);
+			glVertex3f( -0.2, -0.3, 0.0);
+			glVertex3f(  0.2, -0.3 ,0.0);
+		}
+		glEnd();
+		
+		//[openGLContext flushBuffer];
+		((void (*)(id, SEL))objc_msgSend)(openGLContext, sel_registerName("flushBuffer"));
+	}
+	
 	// or optionally you can use default run loop, and don't forget to disable [NSApp finishLaunching] then
 	//[NSApp run];
 	//((void (*)(id, SEL))objc_msgSend)(NSApp, sel_registerName("run"));
-
+	
 	printf("gracefully terminated\n");
 	
 	// } // TODO
 	return 0;
 }
-
