@@ -1,2 +1,8 @@
-# osx_app_in_plain_c
+# OS X app in plain C
+
 A simple showcase how to create a simple OS X app in plain C without any Objective-C
+
+### TODO
+
+- Add autorelease pool
+- For some reason if we run the app from command line than menu is not accesible by mouse at first time
