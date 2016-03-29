@@ -116,6 +116,10 @@ int main() {
 	id windowAlloc = ((id (*)(id, SEL))objc_msgSend)((id)objc_getClass("NSWindow"), sel_registerName("alloc"));
 	id window = ((id (*)(id, SEL, NSRect, NSUInteger, NSUInteger, BOOL))objc_msgSend)(windowAlloc, sel_registerName("initWithContentRect:styleMask:backing:defer:"), rect, 15, 2, NO);
 	
+	//[[window contentView] setWantsBestResolutionOpenGLSurface:YES];
+	id contentView = ((id (*)(id, SEL))objc_msgSend)(window, sel_registerName("contentView"));
+	((void (*)(id, SEL, BOOL))objc_msgSend)(contentView, sel_registerName("setWantsBestResolutionOpenGLSurface:"), YES);
+	
 	//[window cascadeTopLeftFromPoint:NSMakePoint(20,20)];
 	NSPoint point = {20, 20};
 	((void (*)(id, SEL, NSPoint))objc_msgSend)(window, sel_registerName("cascadeTopLeftFromPoint:"), point);
@@ -131,6 +135,9 @@ int main() {
 //		NSOpenGLPFAAlphaSize, 8,
 //		NSOpenGLPFADoubleBuffer,
 //		NSOpenGLPFAAccelerated,
+//		NSOpenGLPFANoRecovery,
+//		NSOpenGLPFASampleBuffers, 1,
+//		NSOpenGLPFASamples, 4,
 //		0
 //	};
 	uint32_t glAttributes[] =
@@ -139,6 +146,9 @@ int main() {
 		11, 8,
 		5,
 		73,
+		72,
+		55, 1,
+		56, 4,
 		0
 	};
 	
@@ -151,8 +161,8 @@ int main() {
 	id openGLContext = ((id (*)(id, SEL, id, id))objc_msgSend)(openGLContextAlloc, sel_registerName("initWithFormat:shareContext:"), pixelFormat, nil);
 	
 	//[openGLContext setView:[window contentView]];
-	id contentView = ((id (*)(id, SEL))objc_msgSend)(window, sel_registerName("contentView"));
-	((void (*)(id, SEL, id))objc_msgSend)(openGLContext, sel_registerName("setView:"), contentView);
+	id windowContentView = ((id (*)(id, SEL))objc_msgSend)(window, sel_registerName("contentView"));
+	((void (*)(id, SEL, id))objc_msgSend)(openGLContext, sel_registerName("setView:"), windowContentView);
 	
 	//[window makeKeyAndOrderFront:window];
 	((void (*)(id, SEL, id))objc_msgSend)(window, sel_registerName("makeKeyAndOrderFront:"), window);
@@ -196,6 +206,9 @@ int main() {
 		
 		//NSRect rect = [((NSWindow*)window) frame];
 		NSRect rect = ((NSRect (*)(id, SEL))objc_msgSend_stret)(window, sel_registerName("frame"));
+		
+		//rect = [window convertRectToBacking:rect];
+		rect = ((NSRect (*)(id, SEL, NSRect))objc_msgSend_stret)(window, sel_registerName("convertRectToBacking:"), rect);
 
 		glViewport(0, 0, rect.size.width, rect.size.height);
 		
