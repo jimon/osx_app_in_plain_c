@@ -4,5 +4,4 @@ A simple showcase how to create a simple OS X app in plain C without any Objecti
 
 ### TODO
 
-- Add autorelease pool
 - For some reason if we run the app from command line than menu is not accesible by mouse at first time
