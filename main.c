@@ -38,13 +38,14 @@ extern id const NSDefaultRunLoopMode;
 #endif
 
 bool terminated = false;
+uint32_t windowCount = 0;
 
 // we gonna construct objective-c class by hand in runtime, so wow, so hacker!
 //@interface AppDelegate : NSObject<NSApplicationDelegate>
-//- (NSApplicationTerminateReply)applicationShouldTerminate:(NSApplication *)sender;
+//-(NSApplicationTerminateReply)applicationShouldTerminate:(NSApplication *)sender;
 //@end
 //@implementation AppDelegate
-//- (NSApplicationTerminateReply)applicationShouldTerminate:(NSApplication *)sender
+//-(NSApplicationTerminateReply)applicationShouldTerminate:(NSApplication *)sender
 //{
 //	terminated = true;
 //	return NSTerminateCancel;
@@ -55,6 +56,26 @@ NSUInteger applicationShouldTerminate(id self, SEL _sel, id sender)
 	printf("requested to terminate\n");
 	terminated = true;
 	return 0;
+}
+
+//@interface WindowDelegate : NSObject<NSWindowDelegate>
+//-(void)windowWillClose:(NSNotification*)notification;
+//@end
+//@implementation WindowDelegate
+//-(void)windowWillClose:(NSNotification*)notification
+//{
+//	(void)notification;
+//	assert(windowCount);
+//	if(--windowCount == 0)
+//		terminated = true;
+//}
+//@end
+void windowWillClose(id self, SEL _sel, id notification)
+{
+	printf("window will close\n");
+	assert(windowCount);
+	if(--windowCount == 0)
+		terminated = true;
 }
 
 int main()
@@ -150,7 +171,30 @@ int main()
 	#ifndef ARC_AVAILABLE
 	((void (*)(id, SEL))objc_msgSend)(window, sel_registerName("autorelease"));
 	#endif
+	
+	// when we are not using ARC, than window will be added to autorelease pool
+	// so if we close it by hand (pressing red button), we don't want it to be released for us
+	// so it will be released by autorelease pool later
+	//[window setReleasedWhenClosed:NO];
+	((void (*)(id, SEL, BOOL))objc_msgSend)(window, sel_registerName("setReleasedWhenClosed:"), NO);
 
+	windowCount = 1;
+	
+	//WindowDelegate * wdg = [[WindowDelegate alloc] init];
+	Class WindowDelegateClass = objc_allocateClassPair((Class)objc_getClass("NSObject"), "WindowDelegate", 0);
+	resultAddProtoc = class_addProtocol(WindowDelegateClass, objc_getProtocol("NSWindowDelegate"));
+	assert(resultAddProtoc);
+	resultAddMethod = class_addMethod(WindowDelegateClass, sel_registerName("windowWillClose:"), (IMP)windowWillClose,  "v@:@");
+	assert(resultAddMethod);
+	id wdgAlloc = ((id (*)(id, SEL))objc_msgSend)((id)WindowDelegateClass, sel_registerName("alloc"));
+	id wdg = ((id (*)(id, SEL))objc_msgSend)(wdgAlloc, sel_registerName("init"));
+	#ifndef ARC_AVAILABLE
+	((void (*)(id, SEL))objc_msgSend)(wdg, sel_registerName("autorelease"));
+	#endif
+
+	//[window setDelegate:wdg];
+	((void (*)(id, SEL, id))objc_msgSend)(window, sel_registerName("setDelegate:"), wdg);
+	
 	//[[window contentView] setWantsBestResolutionOpenGLSurface:YES];
 	id contentView = ((id (*)(id, SEL))objc_msgSend)(window, sel_registerName("contentView"));
 	((void (*)(id, SEL, BOOL))objc_msgSend)(contentView, sel_registerName("setWantsBestResolutionOpenGLSurface:"), YES);
@@ -234,6 +278,9 @@ int main()
 			
 			//[NSApp sendEvent:event];
 			((void (*)(id, SEL, id))objc_msgSend)(NSApp, sel_registerName("sendEvent:"), event);
+			
+			if(terminated)
+				break;
 			
 			//[NSApp updateWindows];
 			((void (*)(id, SEL))objc_msgSend)(NSApp, sel_registerName("updateWindows"));
