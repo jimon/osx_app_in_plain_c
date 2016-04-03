@@ -3,6 +3,7 @@
 
 // we don't need much here
 #include <limits.h>
+#include <math.h>
 #include <stdio.h>
 #include <assert.h>
 #include <objc/objc.h>
@@ -35,6 +36,18 @@ extern id const NSDefaultRunLoopMode;
 
 #if defined(__OBJC__) && __has_feature(objc_arc)
 #define ARC_AVAILABLE
+#endif
+
+// ABI is a bit different between platforms
+#ifdef __arm64__
+#define abi_objc_msgSend_stret objc_msgSend
+#else
+#define abi_objc_msgSend_stret objc_msgSend_stret
+#endif
+#ifdef __i386__
+#define abi_objc_msgSend_fpret objc_msgSend_fpret
+#else
+#define abi_objc_msgSend_fpret objc_msgSend
 #endif
 
 bool terminated = false;
@@ -164,7 +177,7 @@ int main()
 	//[appMenuItem setSubmenu:appMenu];
 	((void (*)(id, SEL, id))objc_msgSend)(appMenuItem, sel_registerName("setSubmenu:"), appMenu);
 	
-	//id window = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 200, 200) styleMask:NSTitledWindowMask | NSClosableWindowMask | NSMiniaturizableWindowMask | NSResizableWindowMask backing:NSBackingStoreBuffered defer:NO];
+	//id window = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 500, 500) styleMask:NSTitledWindowMask | NSClosableWindowMask | NSMiniaturizableWindowMask | NSResizableWindowMask backing:NSBackingStoreBuffered defer:NO];
 	NSRect rect = {{0, 0}, {500, 500}};
 	id windowAlloc = ((id (*)(id, SEL))objc_msgSend)((id)objc_getClass("NSWindow"), sel_registerName("alloc"));
 	id window = ((id (*)(id, SEL, NSRect, NSUInteger, NSUInteger, BOOL))objc_msgSend)(windowAlloc, sel_registerName("initWithContentRect:styleMask:backing:defer:"), rect, 15, 2, NO);
@@ -195,8 +208,11 @@ int main()
 	//[window setDelegate:wdg];
 	((void (*)(id, SEL, id))objc_msgSend)(window, sel_registerName("setDelegate:"), wdg);
 	
-	//[[window contentView] setWantsBestResolutionOpenGLSurface:YES];
+	//NSView * contentView = [window contentView];
 	id contentView = ((id (*)(id, SEL))objc_msgSend)(window, sel_registerName("contentView"));
+
+	// disable this if you don't want retina support
+	//[contentView setWantsBestResolutionOpenGLSurface:YES];
 	((void (*)(id, SEL, BOOL))objc_msgSend)(contentView, sel_registerName("setWantsBestResolutionOpenGLSurface:"), YES);
 	
 	//[window cascadeTopLeftFromPoint:NSMakePoint(20,20)];
@@ -246,9 +262,8 @@ int main()
 	((void (*)(id, SEL))objc_msgSend)(openGLContext, sel_registerName("autorelease"));
 	#endif
 	
-	//[openGLContext setView:[window contentView]];
-	id windowContentView = ((id (*)(id, SEL))objc_msgSend)(window, sel_registerName("contentView"));
-	((void (*)(id, SEL, id))objc_msgSend)(openGLContext, sel_registerName("setView:"), windowContentView);
+	//[openGLContext setView:contentView];
+	((void (*)(id, SEL, id))objc_msgSend)(openGLContext, sel_registerName("setView:"), contentView);
 	
 	//[window makeKeyAndOrderFront:window];
 	((void (*)(id, SEL, id))objc_msgSend)(window, sel_registerName("makeKeyAndOrderFront:"), window);
@@ -274,11 +289,167 @@ int main()
 		
 		if(event)
 		{
-			printf("event\n");
+			//NSEventType eventType = [event type];
+			NSUInteger eventType = ((NSUInteger (*)(id, SEL))objc_msgSend)(event, sel_registerName("type"));
+			
+			switch(eventType)
+			{
+			//case NSMouseMoved:
+			//case NSLeftMouseDragged:
+			//case NSRightMouseDragged:
+			//case NSOtherMouseDragged:
+			case 5:
+			case 6:
+			case 7:
+			case 27:
+			{
+				//NSWindow * currentWindow = [NSApp keyWindow];
+				id currentWindow = ((id (*)(id, SEL))objc_msgSend)(NSApp, sel_registerName("keyWindow"));
+
+				//NSRect adjustFrame = [[currentWindow contentView] frame];
+				id currentWindowContentView = ((id (*)(id, SEL))objc_msgSend)(currentWindow, sel_registerName("contentView"));
+				NSRect adjustFrame = ((NSRect (*)(id, SEL))abi_objc_msgSend_stret)(currentWindowContentView, sel_registerName("frame"));
+				
+				//NSPoint p = [currentWindow mouseLocationOutsideOfEventStream];
+				// NSPoint is small enough to fit a register, so no need for objc_msgSend_stret
+				NSPoint p = ((NSPoint (*)(id, SEL))objc_msgSend)(currentWindow, sel_registerName("mouseLocationOutsideOfEventStream"));
+				
+				// map input to content view rect
+				if(p.x < 0) p.x = 0;
+				else if(p.x > adjustFrame.size.width) p.x = adjustFrame.size.width;
+				if(p.y < 0) p.y = 0;
+				else if(p.y > adjustFrame.size.height) p.y = adjustFrame.size.height;
+
+				// map input to pixels
+				NSRect r = {p.x, p.y, 0, 0};
+				//r = [currentWindowContentView convertRectToBacking:r];
+				r = ((NSRect (*)(id, SEL, NSRect))abi_objc_msgSend_stret)(currentWindowContentView, sel_registerName("convertRectToBacking:"), r);
+				p = r.origin;
+				
+				printf("mouse moved to %f %f\n", p.x, p.y);
+				break;
+			}
+			//case NSLeftMouseDown:
+			case 1:
+				printf("mouse left key down\n");
+				break;
+			//case NSLeftMouseUp:
+			case 2:
+				printf("mouse left key up\n");
+				break;
+			//case NSRightMouseDown:
+			case 3:
+				printf("mouse right key down\n");
+				break;
+			//case NSRightMouseUp:
+			case 4:
+				printf("mouse right key up\n");
+				break;
+			//case NSOtherMouseDown:
+			case 25:
+			{
+				// number == 2 is a middle button
+
+				//NSInteger number = [event buttonNumber];
+				NSInteger number = ((NSInteger (*)(id, SEL))objc_msgSend)(event, sel_registerName("buttonNumber"));
+				printf("mouse other key down : %i\n", (int)number);
+				break;
+			}
+			//case NSOtherMouseUp:
+			case 26:
+			{
+				//NSInteger number = [event buttonNumber];
+				NSInteger number = ((NSInteger (*)(id, SEL))objc_msgSend)(event, sel_registerName("buttonNumber"));
+				printf("mouse other key up : %i\n", (int)number);
+				break;
+			}
+			//case NSScrollWheel:
+			case 22:
+			{
+				//CGFloat deltaX = [event scrollingDeltaX];
+				CGFloat deltaX = ((CGFloat (*)(id, SEL))abi_objc_msgSend_fpret)(event, sel_registerName("scrollingDeltaX"));
+
+				//CGFloat deltaY = [event scrollingDeltaY];
+				CGFloat deltaY = ((CGFloat (*)(id, SEL))abi_objc_msgSend_fpret)(event, sel_registerName("scrollingDeltaY"));
+				
+				//BOOL precisionScrolling = [event hasPreciseScrollingDeltas];
+				BOOL precisionScrolling = ((BOOL (*)(id, SEL))objc_msgSend)(event, sel_registerName("hasPreciseScrollingDeltas"));
+
+				if(precisionScrolling)
+				{
+					deltaX *= 0.1f; // similar to glfw
+					deltaY *= 0.1f;
+				}
+
+				if(fabs(deltaX) > 0.0f || fabs(deltaY) > 0.0f)
+					printf("mouse scroll wheel delta %f %f\n", deltaX, deltaY);
+				break;
+			}
+			//case NSFlagsChanged:
+			case 12:
+			{
+				//NSEventModifierFlags modifiers = [event modifierFlags];
+				NSUInteger modifiers = ((NSUInteger (*)(id, SEL))objc_msgSend)(event, sel_registerName("modifierFlags"));
+				
+				// based on NSEventModifierFlags
+				struct
+				{
+					union
+					{
+						struct
+						{
+							uint8_t alpha_shift:1;
+							uint8_t shift:1;
+							uint8_t control:1;
+							uint8_t alternate:1;
+							uint8_t command:1;
+							uint8_t numeric_pad:1;
+							uint8_t help:1;
+							uint8_t function:1;
+						};
+						uint8_t mask;
+					};
+				} keys;
+				
+				//keys.mask = (modifiers & NSDeviceIndependentModifierFlagsMask) >> 16;
+				keys.mask = (modifiers & 0xffff0000UL) >> 16;
+				
+				printf("mod keys : mask %03u state %u%u%u%u%u%u%u%u\n", keys.mask, keys.alpha_shift, keys.shift, keys.control, keys.alternate, keys.command, keys.numeric_pad, keys.help, keys.function);
+				break;
+			}
+			//case NSKeyDown:
+			case 10:
+			{
+				//NSString * inputText = [event characters];
+				id inputText = ((id (*)(id, SEL))objc_msgSend)(event, sel_registerName("characters"));
+				
+				//const char * inputTextUTF8 = [inputText UTF8String];
+				const char * inputTextUTF8 = ((const char* (*)(id, SEL))objc_msgSend)(inputText, sel_registerName("UTF8String"));
+				
+				//you can get list of virtual key codes from Carbon HIToolbox/Events.h
+				//uint16_t keyCode = [event keyCode];
+				uint16_t keyCode = ((unsigned short (*)(id, SEL))objc_msgSend)(event, sel_registerName("keyCode"));
+
+				printf("key down %u, text '%s'\n", keyCode, inputTextUTF8);
+				break;
+			}
+			//case NSKeyUp:
+			case 11:
+			{
+				//uint16_t keyCode = [event keyCode];
+				uint16_t keyCode = ((unsigned short (*)(id, SEL))objc_msgSend)(event, sel_registerName("keyCode"));
+				
+				printf("key up %u\n", keyCode);
+				break;
+			}
+			default:
+				break;
+			}
 			
 			//[NSApp sendEvent:event];
 			((void (*)(id, SEL, id))objc_msgSend)(NSApp, sel_registerName("sendEvent:"), event);
 			
+			// if user closes the window we might need to terminate asap
 			if(terminated)
 				break;
 			
@@ -293,11 +464,11 @@ int main()
 		//[openGLContext makeCurrentContext];
 		((void (*)(id, SEL))objc_msgSend)(openGLContext, sel_registerName("makeCurrentContext"));
 		
-		//NSRect rect = [((NSWindow*)window) frame];
-		NSRect rect = ((NSRect (*)(id, SEL))objc_msgSend_stret)(window, sel_registerName("frame"));
+		//NSRect rect = [contentView frame];
+		NSRect rect = ((NSRect (*)(id, SEL))abi_objc_msgSend_stret)(contentView, sel_registerName("frame"));
 		
-		//rect = [window convertRectToBacking:rect];
-		rect = ((NSRect (*)(id, SEL, NSRect))objc_msgSend_stret)(window, sel_registerName("convertRectToBacking:"), rect);
+		//rect = [contentView convertRectToBacking:rect];
+		rect = ((NSRect (*)(id, SEL, NSRect))abi_objc_msgSend_stret)(contentView, sel_registerName("convertRectToBacking:"), rect);
 		
 		glViewport(0, 0, rect.size.width, rect.size.height);
 		
