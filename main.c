@@ -93,14 +93,22 @@ void windowWillClose(id self, SEL _sel, id notification)
 
 int main()
 {
+    SEL allocSel = sel_registerName("alloc");
+    SEL initSel = sel_registerName("init");
+    SEL autoreleaseSel = sel_registerName("autorelease");
+    Class NSStringClass = objc_getClass("NSString");
+    SEL stringWithUTF8StringSel = sel_registerName("stringWithUTF8String:");
+    SEL setDelegateSel = sel_registerName("setDelegate:");
+    SEL addItemSel = sel_registerName("addItem:");
+
 	#ifdef ARC_AVAILABLE
 	@autoreleasepool
 	{
 	#else
 	//NSAutoreleasePool * pool = [[NSAutoreleasePool alloc] init];
 	//would be nice to use objc_autoreleasePoolPush instead, but it's not publically available in the headers
-	id poolAlloc = ((id (*)(id, SEL))objc_msgSend)((id)objc_getClass("NSAutoreleasePool"), sel_registerName("alloc"));
-	id pool = ((id (*)(id, SEL))objc_msgSend)(poolAlloc, sel_registerName("init"));
+	id poolAlloc = ((id (*)(id, SEL))objc_msgSend)((id)objc_getClass("NSAutoreleasePool"), allocSel);
+	id pool = ((id (*)(id, SEL))objc_msgSend)(poolAlloc, initSel);
 	#endif
 	
 	//[NSApplication sharedApplication];
@@ -115,44 +123,44 @@ int main()
 	assert(resultAddProtoc);
 	bool resultAddMethod = class_addMethod(appDelegateClass, sel_registerName("applicationShouldTerminate:"), (IMP)applicationShouldTerminate, NSUIntegerEncoding "@:@");
 	assert(resultAddMethod);
-	id dgAlloc = ((id (*)(id, SEL))objc_msgSend)((id)appDelegateClass, sel_registerName("alloc"));
-	id dg = ((id (*)(id, SEL))objc_msgSend)(dgAlloc, sel_registerName("init"));
+	id dgAlloc = ((id (*)(id, SEL))objc_msgSend)((id)appDelegateClass, allocSel);
+	id dg = ((id (*)(id, SEL))objc_msgSend)(dgAlloc, initSel);
 	#ifndef ARC_AVAILABLE
-	((void (*)(id, SEL))objc_msgSend)(dg, sel_registerName("autorelease"));
+	((void (*)(id, SEL))objc_msgSend)(dg, autoreleaseSel);
 	#endif
 	
 	//[NSApp setDelegate:dg];
-	((void (*)(id, SEL, id))objc_msgSend)(NSApp, sel_registerName("setDelegate:"), dg);
+	((void (*)(id, SEL, id))objc_msgSend)(NSApp, setDelegateSel, dg);
 	
 	// only needed if we don't use [NSApp run]
 	//[NSApp finishLaunching];
 	((void (*)(id, SEL))objc_msgSend)(NSApp, sel_registerName("finishLaunching"));
 	
 	//id menubar = [[NSMenu alloc] init];
-	id menubarAlloc = ((id (*)(id, SEL))objc_msgSend)((id)objc_getClass("NSMenu"), sel_registerName("alloc"));
-	id menubar = ((id (*)(id, SEL))objc_msgSend)(menubarAlloc, sel_registerName("init"));
+	id menubarAlloc = ((id (*)(id, SEL))objc_msgSend)((id)objc_getClass("NSMenu"), allocSel);
+	id menubar = ((id (*)(id, SEL))objc_msgSend)(menubarAlloc, initSel);
 	#ifndef ARC_AVAILABLE
-	((void (*)(id, SEL))objc_msgSend)(menubar, sel_registerName("autorelease"));
+	((void (*)(id, SEL))objc_msgSend)(menubar, autoreleaseSel);
 	#endif
 
 	//id appMenuItem = [[NSMenuItem alloc] init];
-	id appMenuItemAlloc = ((id (*)(id, SEL))objc_msgSend)((id)objc_getClass("NSMenuItem"), sel_registerName("alloc"));
-	id appMenuItem = ((id (*)(id, SEL))objc_msgSend)(appMenuItemAlloc, sel_registerName("init"));
+	id appMenuItemAlloc = ((id (*)(id, SEL))objc_msgSend)((id)objc_getClass("NSMenuItem"), allocSel);
+	id appMenuItem = ((id (*)(id, SEL))objc_msgSend)(appMenuItemAlloc, initSel);
 	#ifndef ARC_AVAILABLE
-	((void (*)(id, SEL))objc_msgSend)(appMenuItem, sel_registerName("autorelease"));
+	((void (*)(id, SEL))objc_msgSend)(appMenuItem, autoreleaseSel);
 	#endif
 
 	//[menubar addItem:appMenuItem];
-	((void (*)(id, SEL, id))objc_msgSend)(menubar, sel_registerName("addItem:"), appMenuItem);
+	((void (*)(id, SEL, id))objc_msgSend)(menubar, addItemSel, appMenuItem);
 	
 	//[NSApp setMainMenu:menubar];
 	((id (*)(id, SEL, id))objc_msgSend)(NSApp, sel_registerName("setMainMenu:"), menubar);
 	
 	//id appMenu = [[NSMenu alloc] init];
-	id appMenuAlloc = ((id (*)(id, SEL))objc_msgSend)((id)objc_getClass("NSMenu"), sel_registerName("alloc"));
-	id appMenu = ((id (*)(id, SEL))objc_msgSend)(appMenuAlloc, sel_registerName("init"));
+	id appMenuAlloc = ((id (*)(id, SEL))objc_msgSend)((id)objc_getClass("NSMenu"), allocSel);
+	id appMenu = ((id (*)(id, SEL))objc_msgSend)(appMenuAlloc, initSel);
 	#ifndef ARC_AVAILABLE
-	((void (*)(id, SEL))objc_msgSend)(appMenu, sel_registerName("autorelease"));
+	((void (*)(id, SEL))objc_msgSend)(appMenu, autoreleaseSel);
 	#endif
 	
 	//id appName = [[NSProcessInfo processInfo] processName];
@@ -160,29 +168,29 @@ int main()
 	id appName = ((id (*)(id, SEL))objc_msgSend)(processInfo, sel_registerName("processName"));
 	
 	//id quitTitle = [@"Quit " stringByAppendingString:appName];
-	id quitTitlePrefixString = ((id (*)(id, SEL, const char*))objc_msgSend)((id)objc_getClass("NSString"), sel_registerName("stringWithUTF8String:"), "Quit ");
+	id quitTitlePrefixString = ((id (*)(id, SEL, const char*))objc_msgSend)((id)NSStringClass, stringWithUTF8StringSel, "Quit ");
 	id quitTitle = ((id (*)(id, SEL, id))objc_msgSend)(quitTitlePrefixString, sel_registerName("stringByAppendingString:"), appName);
 	
 	//id quitMenuItem = [[NSMenuItem alloc] initWithTitle:quitTitle action:@selector(terminate:) keyEquivalent:@"q"];
-	id quitMenuItemKey = ((id (*)(id, SEL, const char*))objc_msgSend)((id)objc_getClass("NSString"), sel_registerName("stringWithUTF8String:"), "q");
-	id quitMenuItemAlloc = ((id (*)(id, SEL))objc_msgSend)((id)objc_getClass("NSMenuItem"), sel_registerName("alloc"));
+	id quitMenuItemKey = ((id (*)(id, SEL, const char*))objc_msgSend)((id)NSStringClass, stringWithUTF8StringSel, "q");
+	id quitMenuItemAlloc = ((id (*)(id, SEL))objc_msgSend)((id)objc_getClass("NSMenuItem"), allocSel);
 	id quitMenuItem = ((id (*)(id, SEL, id, SEL, id))objc_msgSend)(quitMenuItemAlloc, sel_registerName("initWithTitle:action:keyEquivalent:"), quitTitle, sel_registerName("terminate:"), quitMenuItemKey);
 	#ifndef ARC_AVAILABLE
-	((void (*)(id, SEL))objc_msgSend)(quitMenuItem, sel_registerName("autorelease"));
+	((void (*)(id, SEL))objc_msgSend)(quitMenuItem, autoreleaseSel);
 	#endif
 
 	//[appMenu addItem:quitMenuItem];
-	((void (*)(id, SEL, id))objc_msgSend)(appMenu, sel_registerName("addItem:"), quitMenuItem);
+	((void (*)(id, SEL, id))objc_msgSend)(appMenu, addItemSel, quitMenuItem);
 	
 	//[appMenuItem setSubmenu:appMenu];
 	((void (*)(id, SEL, id))objc_msgSend)(appMenuItem, sel_registerName("setSubmenu:"), appMenu);
 	
 	//id window = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 500, 500) styleMask:NSTitledWindowMask | NSClosableWindowMask | NSMiniaturizableWindowMask | NSResizableWindowMask backing:NSBackingStoreBuffered defer:NO];
 	NSRect rect = {{0, 0}, {500, 500}};
-	id windowAlloc = ((id (*)(id, SEL))objc_msgSend)((id)objc_getClass("NSWindow"), sel_registerName("alloc"));
+	id windowAlloc = ((id (*)(id, SEL))objc_msgSend)((id)objc_getClass("NSWindow"), allocSel);
 	id window = ((id (*)(id, SEL, NSRect, NSUInteger, NSUInteger, BOOL))objc_msgSend)(windowAlloc, sel_registerName("initWithContentRect:styleMask:backing:defer:"), rect, 15, 2, NO);
 	#ifndef ARC_AVAILABLE
-	((void (*)(id, SEL))objc_msgSend)(window, sel_registerName("autorelease"));
+	((void (*)(id, SEL))objc_msgSend)(window, autoreleaseSel);
 	#endif
 	
 	// when we are not using ARC, than window will be added to autorelease pool
@@ -199,14 +207,14 @@ int main()
 	assert(resultAddProtoc);
 	resultAddMethod = class_addMethod(WindowDelegateClass, sel_registerName("windowWillClose:"), (IMP)windowWillClose,  "v@:@");
 	assert(resultAddMethod);
-	id wdgAlloc = ((id (*)(id, SEL))objc_msgSend)((id)WindowDelegateClass, sel_registerName("alloc"));
-	id wdg = ((id (*)(id, SEL))objc_msgSend)(wdgAlloc, sel_registerName("init"));
+	id wdgAlloc = ((id (*)(id, SEL))objc_msgSend)((id)WindowDelegateClass, allocSel);
+	id wdg = ((id (*)(id, SEL))objc_msgSend)(wdgAlloc, initSel);
 	#ifndef ARC_AVAILABLE
-	((void (*)(id, SEL))objc_msgSend)(wdg, sel_registerName("autorelease"));
+	((void (*)(id, SEL))objc_msgSend)(wdg, autoreleaseSel);
 	#endif
 
 	//[window setDelegate:wdg];
-	((void (*)(id, SEL, id))objc_msgSend)(window, sel_registerName("setDelegate:"), wdg);
+	((void (*)(id, SEL, id))objc_msgSend)(window, setDelegateSel, wdg);
 	
 	//NSView * contentView = [window contentView];
 	id contentView = ((id (*)(id, SEL))objc_msgSend)(window, sel_registerName("contentView"));
@@ -220,7 +228,7 @@ int main()
 	((void (*)(id, SEL, NSPoint))objc_msgSend)(window, sel_registerName("cascadeTopLeftFromPoint:"), point);
 	
 	//[window setTitle:@"sup"];
-	id titleString = ((id (*)(id, SEL, const char*))objc_msgSend)((id)objc_getClass("NSString"), sel_registerName("stringWithUTF8String:"), "sup from C");
+	id titleString = ((id (*)(id, SEL, const char*))objc_msgSend)((id)NSStringClass, stringWithUTF8StringSel, "sup from C");
 	((void (*)(id, SEL, id))objc_msgSend)(window, sel_registerName("setTitle:"), titleString);
 	
 	//NSOpenGLPixelFormatAttribute glAttributes[] =
@@ -249,17 +257,17 @@ int main()
 	};
 	
 	//NSOpenGLPixelFormat * pixelFormat = [[NSOpenGLPixelFormat alloc] initWithAttributes:glAttributes];
-	id pixelFormatAlloc = ((id (*)(id, SEL))objc_msgSend)((id)objc_getClass("NSOpenGLPixelFormat"), sel_registerName("alloc"));
+	id pixelFormatAlloc = ((id (*)(id, SEL))objc_msgSend)((id)objc_getClass("NSOpenGLPixelFormat"), allocSel);
 	id pixelFormat = ((id (*)(id, SEL, const uint32_t*))objc_msgSend)(pixelFormatAlloc, sel_registerName("initWithAttributes:"), glAttributes);
 	#ifndef ARC_AVAILABLE
-	((void (*)(id, SEL))objc_msgSend)(pixelFormat, sel_registerName("autorelease"));
+	((void (*)(id, SEL))objc_msgSend)(pixelFormat, autoreleaseSel);
 	#endif
 
 	//NSOpenGLContext * openGLContext = [[NSOpenGLContext alloc] initWithFormat:pixelFormat shareContext:nil];
-	id openGLContextAlloc = ((id (*)(id, SEL))objc_msgSend)((id)objc_getClass("NSOpenGLContext"), sel_registerName("alloc"));
+	id openGLContextAlloc = ((id (*)(id, SEL))objc_msgSend)((id)objc_getClass("NSOpenGLContext"), allocSel);
 	id openGLContext = ((id (*)(id, SEL, id, id))objc_msgSend)(openGLContextAlloc, sel_registerName("initWithFormat:shareContext:"), pixelFormat, nil);
 	#ifndef ARC_AVAILABLE
-	((void (*)(id, SEL))objc_msgSend)(openGLContext, sel_registerName("autorelease"));
+	((void (*)(id, SEL))objc_msgSend)(openGLContext, autoreleaseSel);
 	#endif
 	
 	//[openGLContext setView:contentView];
@@ -284,13 +292,23 @@ int main()
 	while(!terminated)
 	{
 		//NSEvent * event = [NSApp nextEventMatchingMask:NSAnyEventMask untilDate:[NSDate distantPast] inMode:NSDefaultRunLoopMode dequeue:YES];
-		id distantPast = ((id (*)(id, SEL))objc_msgSend)((id)objc_getClass("NSDate"), sel_registerName("distantPast"));
-		id event = ((id (*)(id, SEL, NSUInteger, id, id, BOOL))objc_msgSend)(NSApp, sel_registerName("nextEventMatchingMask:untilDate:inMode:dequeue:"), NSUIntegerMax, distantPast, NSDefaultRunLoopMode, YES);
+		static Class NSDateClass = objc_getClass("NSDate");
+		static SEL distantPastSel = sel_registerName("distantPast");
+		id distantPast = ((id (*)(id, SEL))objc_msgSend)((id)NSDateClass, distantPastSel);
+		
+		static SEL nextEventMatchingMaskSel = sel_registerName("nextEventMatchingMask:untilDate:inMode:dequeue:");
+		id event = ((id (*)(id, SEL, NSUInteger, id, id, BOOL))objc_msgSend)(NSApp, nextEventMatchingMaskSel, NSUIntegerMax, distantPast, NSDefaultRunLoopMode, YES);
+		
+		static SEL frameSel = sel_registerName("frame");
 		
 		if(event)
 		{
 			//NSEventType eventType = [event type];
-			NSUInteger eventType = ((NSUInteger (*)(id, SEL))objc_msgSend)(event, sel_registerName("type"));
+			static SEL typeSel = sel_registerName("type");
+			NSUInteger eventType = ((NSUInteger (*)(id, SEL))objc_msgSend)(event, typeSel);
+			
+			static SEL buttonNumberSel = sel_registerName("buttonNumber");
+			static SEL keyCodeSel = sel_registerName("keyCode");
 			
 			switch(eventType)
 			{
@@ -304,15 +322,18 @@ int main()
 			case 27:
 			{
 				//NSWindow * currentWindow = [NSApp keyWindow];
-				id currentWindow = ((id (*)(id, SEL))objc_msgSend)(NSApp, sel_registerName("keyWindow"));
+				static SEL keyWindowSel = sel_registerName("keyWindow");
+				id currentWindow = ((id (*)(id, SEL))objc_msgSend)(NSApp, keyWindowSel);
 
 				//NSRect adjustFrame = [[currentWindow contentView] frame];
-				id currentWindowContentView = ((id (*)(id, SEL))objc_msgSend)(currentWindow, sel_registerName("contentView"));
-				NSRect adjustFrame = ((NSRect (*)(id, SEL))abi_objc_msgSend_stret)(currentWindowContentView, sel_registerName("frame"));
+				static SEL contentViewSel = sel_registerName("contentView");
+				id currentWindowContentView = ((id (*)(id, SEL))objc_msgSend)(currentWindow, contentViewSel);
+				NSRect adjustFrame = ((NSRect (*)(id, SEL))abi_objc_msgSend_stret)(currentWindowContentView, frameSel);
 				
 				//NSPoint p = [currentWindow mouseLocationOutsideOfEventStream];
 				// NSPoint is small enough to fit a register, so no need for objc_msgSend_stret
-				NSPoint p = ((NSPoint (*)(id, SEL))objc_msgSend)(currentWindow, sel_registerName("mouseLocationOutsideOfEventStream"));
+				static SEL mouseLocationOutsideOfEventStreamSel = sel_registerName("mouseLocationOutsideOfEventStream");
+				NSPoint p = ((NSPoint (*)(id, SEL))objc_msgSend)(currentWindow, mouseLocationOutsideOfEventStreamSel);
 				
 				// map input to content view rect
 				if(p.x < 0) p.x = 0;
@@ -323,7 +344,8 @@ int main()
 				// map input to pixels
 				NSRect r = {p.x, p.y, 0, 0};
 				//r = [currentWindowContentView convertRectToBacking:r];
-				r = ((NSRect (*)(id, SEL, NSRect))abi_objc_msgSend_stret)(currentWindowContentView, sel_registerName("convertRectToBacking:"), r);
+				static SEL convertRectToBackingSel = sel_registerName("convertRectToBacking:");
+				r = ((NSRect (*)(id, SEL, NSRect))abi_objc_msgSend_stret)(currentWindowContentView, convertRectToBackingSel, r);
 				p = r.origin;
 				
 				printf("mouse moved to %f %f\n", p.x, p.y);
@@ -351,7 +373,7 @@ int main()
 				// number == 2 is a middle button
 
 				//NSInteger number = [event buttonNumber];
-				NSInteger number = ((NSInteger (*)(id, SEL))objc_msgSend)(event, sel_registerName("buttonNumber"));
+				NSInteger number = ((NSInteger (*)(id, SEL))objc_msgSend)(event, buttonNumberSel);
 				printf("mouse other key down : %i\n", (int)number);
 				break;
 			}
@@ -359,7 +381,7 @@ int main()
 			case 26:
 			{
 				//NSInteger number = [event buttonNumber];
-				NSInteger number = ((NSInteger (*)(id, SEL))objc_msgSend)(event, sel_registerName("buttonNumber"));
+				NSInteger number = ((NSInteger (*)(id, SEL))objc_msgSend)(event, buttonNumberSel);
 				printf("mouse other key up : %i\n", (int)number);
 				break;
 			}
@@ -367,13 +389,16 @@ int main()
 			case 22:
 			{
 				//CGFloat deltaX = [event scrollingDeltaX];
-				CGFloat deltaX = ((CGFloat (*)(id, SEL))abi_objc_msgSend_fpret)(event, sel_registerName("scrollingDeltaX"));
+				static SEL scrollingDeltaXSel = sel_registerName("scrollingDeltaX");
+				CGFloat deltaX = ((CGFloat (*)(id, SEL))abi_objc_msgSend_fpret)(event, scrollingDeltaXSel);
 
 				//CGFloat deltaY = [event scrollingDeltaY];
-				CGFloat deltaY = ((CGFloat (*)(id, SEL))abi_objc_msgSend_fpret)(event, sel_registerName("scrollingDeltaY"));
+				static SEL scrollingDeltaYSel = sel_registerName("scrollingDeltaY");
+				CGFloat deltaY = ((CGFloat (*)(id, SEL))abi_objc_msgSend_fpret)(event, scrollingDeltaYSel);
 				
 				//BOOL precisionScrolling = [event hasPreciseScrollingDeltas];
-				BOOL precisionScrolling = ((BOOL (*)(id, SEL))objc_msgSend)(event, sel_registerName("hasPreciseScrollingDeltas"));
+				static SEL hasPreciseScrollingDeltasSel = sel_registerName("hasPreciseScrollingDeltas");
+				BOOL precisionScrolling = ((BOOL (*)(id, SEL))objc_msgSend)(event, hasPreciseScrollingDeltasSel);
 
 				if(precisionScrolling)
 				{
@@ -389,7 +414,8 @@ int main()
 			case 12:
 			{
 				//NSEventModifierFlags modifiers = [event modifierFlags];
-				NSUInteger modifiers = ((NSUInteger (*)(id, SEL))objc_msgSend)(event, sel_registerName("modifierFlags"));
+				static SEL modifierFlagsSel = sel_registerName("modifierFlags");
+				NSUInteger modifiers = ((NSUInteger (*)(id, SEL))objc_msgSend)(event, modifierFlagsSel);
 				
 				// based on NSEventModifierFlags
 				struct
@@ -421,14 +447,16 @@ int main()
 			case 10:
 			{
 				//NSString * inputText = [event characters];
-				id inputText = ((id (*)(id, SEL))objc_msgSend)(event, sel_registerName("characters"));
+				static SEL charactersSel = sel_registerName("characters");
+				id inputText = ((id (*)(id, SEL))objc_msgSend)(event, charactersSel);
 				
 				//const char * inputTextUTF8 = [inputText UTF8String];
-				const char * inputTextUTF8 = ((const char* (*)(id, SEL))objc_msgSend)(inputText, sel_registerName("UTF8String"));
+				static SEL UTF8StringSel = sel_registerName("UTF8String");
+				const char * inputTextUTF8 = ((const char* (*)(id, SEL))objc_msgSend)(inputText, UTF8StringSel);
 				
 				//you can get list of virtual key codes from Carbon HIToolbox/Events.h
 				//uint16_t keyCode = [event keyCode];
-				uint16_t keyCode = ((unsigned short (*)(id, SEL))objc_msgSend)(event, sel_registerName("keyCode"));
+				uint16_t keyCode = ((unsigned short (*)(id, SEL))objc_msgSend)(event, keyCodeSel);
 
 				printf("key down %u, text '%s'\n", keyCode, inputTextUTF8);
 				break;
@@ -437,7 +465,7 @@ int main()
 			case 11:
 			{
 				//uint16_t keyCode = [event keyCode];
-				uint16_t keyCode = ((unsigned short (*)(id, SEL))objc_msgSend)(event, sel_registerName("keyCode"));
+				uint16_t keyCode = ((unsigned short (*)(id, SEL))objc_msgSend)(event, keyCodeSel);
 				
 				printf("key up %u\n", keyCode);
 				break;
@@ -447,28 +475,33 @@ int main()
 			}
 			
 			//[NSApp sendEvent:event];
-			((void (*)(id, SEL, id))objc_msgSend)(NSApp, sel_registerName("sendEvent:"), event);
+			static SEL sendEventSel = sel_registerName("sendEvent");
+			((void (*)(id, SEL, id))objc_msgSend)(NSApp, sendEventSel, event);
 			
 			// if user closes the window we might need to terminate asap
 			if(terminated)
 				break;
 			
 			//[NSApp updateWindows];
-			((void (*)(id, SEL))objc_msgSend)(NSApp, sel_registerName("updateWindows"));
+			static SEL updateWindowsSel = sel_registerName("updateWindows");
+			((void (*)(id, SEL))objc_msgSend)(NSApp, updateWindowsSel);
 		}
 		
 		// do runloop stuff
 		//[openGLContext update]; // probably we only need to do it when we resize the window
-		((void (*)(id, SEL))objc_msgSend)(openGLContext, sel_registerName("update"));
+		static SEL updateSel = sel_registerName("update");
+		((void (*)(id, SEL))objc_msgSend)(openGLContext, updateSel);
 		
 		//[openGLContext makeCurrentContext];
-		((void (*)(id, SEL))objc_msgSend)(openGLContext, sel_registerName("makeCurrentContext"));
+		static SEL makeCurrentContextSel = sel_registerName("makeCurrentContext");
+		((void (*)(id, SEL))objc_msgSend)(openGLContext, makeCurrentContextSel);
 		
 		//NSRect rect = [contentView frame];
-		NSRect rect = ((NSRect (*)(id, SEL))abi_objc_msgSend_stret)(contentView, sel_registerName("frame"));
+		NSRect rect = ((NSRect (*)(id, SEL))abi_objc_msgSend_stret)(contentView, frameSel);
 		
 		//rect = [contentView convertRectToBacking:rect];
-		rect = ((NSRect (*)(id, SEL, NSRect))abi_objc_msgSend_stret)(contentView, sel_registerName("convertRectToBacking:"), rect);
+		static SEL convertRectToBackingSel = sel_registerName("convertRectToBacking:");
+		rect = ((NSRect (*)(id, SEL, NSRect))abi_objc_msgSend_stret)(contentView, convertRectToBackingSel, rect);
 		
 		glViewport(0, 0, rect.size.width, rect.size.height);
 		
@@ -484,7 +517,8 @@ int main()
 		glEnd();
 		
 		//[openGLContext flushBuffer];
-		((void (*)(id, SEL))objc_msgSend)(openGLContext, sel_registerName("flushBuffer"));
+		static SEL flushBufferSel = sel_registerName("flushBuffer");
+		((void (*)(id, SEL))objc_msgSend)(openGLContext, flushBufferSel);
 	}
 		
 	printf("gracefully terminated\n");
